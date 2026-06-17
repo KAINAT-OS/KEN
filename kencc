@@ -1,0 +1,6 @@
+#!/bin/bash
+# kencc – compile Ken code to executable
+tempfile=$(mktemp /tmp/kencc_XXXXXX.cpp)
+trap "rm -f $tempfile" EXIT
+/usr/local/bin/ken_prep "$1" > "$tempfile"
+g++ -std=c++23 -O2 "$tempfile" -o "${1%.ken}" "${@:2}"
