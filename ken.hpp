@@ -657,7 +657,7 @@ inline CommandResult operator|(const char* cmd, [[maybe_unused]] BashPipe b) { r
 #  define def auto
 #endif
 #ifndef MAIN
-#define MAIN int main()
+#define MAIN int main(int __argc__,char* __args__[])
 #endif
 
 #ifndef KEN_NO_GLOBAL_NAMESPACE
