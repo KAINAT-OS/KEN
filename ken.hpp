@@ -598,7 +598,11 @@ inline Dict<K, V> kdict(std::initializer_list<std::pair<const K, V>> init) {
     return Dict<K, V>(init.begin(), init.end());
 }
 inline Dict<String, String> kdict() { return {}; }
-
+            
+template <typename... Args>
+inline auto ktup(Args&&... args) {
+    return std::make_tuple(std::forward<Args>(args)...);
+}
 // ============================================================================
 // 11.5 CONTAINER HELPERS (Python‑style)
 // ============================================================================
