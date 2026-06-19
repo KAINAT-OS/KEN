@@ -625,12 +625,16 @@ class kdlist {
     // ------------------------------------------------------------------------
     // Helper: convert any value to JSON with integral types forced to Int
     // (except bool, which stays Bool)
+    // Special case for kdlist -> convert to JSONList
     // ------------------------------------------------------------------------
     template<typename T>
     static JSON to_json(T&& val) {
         using Decayed = std::decay_t<T>;
         if constexpr (std::is_integral_v<Decayed> && !std::is_same_v<Decayed, bool>) {
             return JSON{static_cast<Int>(val)};
+        } else if constexpr (std::is_same_v<Decayed, kdlist>) {
+            // Convert nested kdlist to JSONList
+            return std::forward<T>(val).to_json();
         } else {
             return JSON{std::forward<T>(val)};
         }
@@ -681,6 +685,16 @@ public:
     kdlist(Args&&... args) {
         data_.reserve(sizeof...(args));
         (data_.emplace_back(to_json(std::forward<Args>(args))), ...);
+    }
+
+    // --- Convert this kdlist to a JSON (as JSONList) -------------------------
+    JSON to_json() const {
+        detail::JSONList list;
+        list.reserve(data_.size());
+        for (const auto& item : data_) {
+            list.push_back(item);
+        }
+        return JSON{std::move(list)};
     }
 
     // --- Capacity ------------------------------------------------------------
@@ -793,6 +807,7 @@ public:
     void clear() noexcept { data_.clear(); }
     const std::vector<JSON>& vec() const noexcept { return data_; }
 };
+
 // ============================================================================
 // 12. TIMER & BENCHMARK
 // ============================================================================
