@@ -4,36 +4,37 @@
 
 ---
 
-## Table of Contents
+## 📖 Table of Contents
 
 1. [Quick Start](#quick-start)
 2. [Core Philosophy](#core-philosophy)
 3. [Installation](#installation)
-4. [Type System](#type-system)
-5. [Variables & Type Deduction](#variables--type-deduction)
-6. [Containers](#containers)
+4. [The Golden Brace Rule](#the-golden-brace-rule) ⭐ **IMPORTANT**
+5. [Type System](#type-system)
+6. [Variables & Type Deduction](#variables--type-deduction)
+7. [Containers](#containers)
    - [Lists](#lists)
    - [Kdlists](#kdlists)
    - [Dicts](#dicts)
    - [Sets](#sets)
    - [Tuples](#tuples)
-7. [The Print Engine](#the-print-engine)
-8. [Loops & Iteration](#loops--iteration)
-9. [Functional Programming](#functional-programming)
-10. [Slicing & Span](#slicing--span)
-11. [String Operations](#string-operations)
-12. [File I/O](#file-io)
-13. [JSON Handling](#json-handling)
-14. [Operating System Interface](#operating-system-interface)
-15. [Timing & Benchmarking](#timing--benchmarking)
-16. [Factory Functions](#factory-functions)
-17. [Input](#input)
-18. [The Kencc Compiler](#the-kencc-compiler)
-19. [Configuration Macros](#configuration-macros)
-20. [Complete API Reference](#complete-api-reference)
-21. [Example Programs](#example-programs)
-22. [Requirements](#requirements)
-23. [Design Principles](#design-principles)
+8. [The Print Engine](#the-print-engine)
+9. [Loops & Iteration](#loops--iteration)
+10. [Functional Programming](#functional-programming)
+11. [Slicing & Span](#slicing--span)
+12. [String Operations](#string-operations)
+13. [File I/O](#file-io)
+14. [JSON Handling](#json-handling)
+15. [Operating System Interface](#operating-system-interface)
+16. [Timing & Benchmarking](#timing--benchmarking)
+17. [Factory Functions](#factory-functions)
+18. [Input](#input)
+19. [The Kencc Compiler](#the-kencc-compiler)
+20. [Configuration Macros](#configuration-macros)
+21. [Complete API Reference](#complete-api-reference)
+22. [Example Programs](#example-programs)
+23. [Requirements](#requirements)
+24. [Design Principles](#design-principles)
 
 ---
 
@@ -122,6 +123,50 @@ sudo chmod +x /usr/local/bin/kencc
 - **Build flag**: `-std=c++23` (handled automatically by `kencc`)
 - **No external dependencies** — everything is in the C++ standard library
 - **Header-only** — just `#include "ken.hpp"`
+
+---
+
+## The Golden Brace Rule ⭐
+
+> **"Only functions and control flow use `{ }` — everything else uses `( )`."**
+
+Ken's semicolon‑free magic works best when you follow one simple rule:
+
+### ✅ **Use `( )` for initialisation and calls**
+```cpp
+var nums = kdlist(1, 2, 3)        // ✅ Good – uses parentheses
+var name = String("Alice")        // ✅ Good
+var result = klist(42, "hello")   // ✅ Good
+```
+
+### ✅ **Use `{ }` only for function/block bodies**
+```cpp
+MAIN {                             // ✅ Good – MAIN is a function
+    print("Hello")
+    if (x > 0) {                   // ✅ Good – control flow block
+        print("Positive")
+    }
+}
+
+def calculate() -> Int {           // ✅ Good – function body
+    return 42
+}
+```
+
+### ❌ **Avoid `{ }` for assignments and initialisation**
+```cpp
+var nums = kdlist{1, 2, 3}        // ❌ Avoid – can confuse the preprocessor
+var name = String{"Alice"}        // ❌ Avoid
+var result = klist{42, "hello"}   // ❌ Avoid
+```
+
+### Why?
+
+The `ken_prep` preprocessor automatically inserts semicolons at the end of lines. But when a line ends with `}` (like `kdlist{1, 2, 3}`), the preprocessor thinks the statement is already terminated and **does not add a semicolon**. This leads to confusing compiler errors.
+
+By using `(` instead of `{` for initialisation, you always get clean, predictable semicolon insertion.
+
+**Exception:** Raw C++ initialiser lists (like `List<Int>{1, 2, 3}`) are fine because they're part of the underlying C++ syntax and you'll likely add explicit semicolons when mixing raw C++ with Ken.
 
 ---
 
@@ -229,36 +274,36 @@ nums[0] = 99                           // modify in place
 var size = len(nums)                   // 9
 nums.push_back(10)                     // C++ style also works
 ```
-## Kdlists
 
-**`kdlist`** is Ken's dynamic, **heterogeneous** list type — a full clone of Python’s `list`. It can hold values of any type: integers, floats, strings, booleans, nested lists, dictionaries, or anything that can be represented as a `JSON` value. Under the hood it stores `JSON` variants in a `std::vector`, giving you `O(1)` amortized access, append, and pop while maintaining type safety at runtime.
+---
+
+### Kdlists
+
+**`kdlist`** is Ken's dynamic, **heterogeneous** list type — a full clone of Python's `list`. It can hold values of any type: integers, floats, strings, booleans, nested lists, dictionaries, or anything that can be represented as a `JSON` value. Under the hood it stores `JSON` variants in a `std::vector`, giving you `O(1)` amortized access, append, and pop while maintaining type safety at runtime.
 
 ```cpp
-var mixed = kdlist{"a", 1, 1.4, true, kdlist{42, "nested"}}
+var mixed = kdlist("a", 1, 1.4, true, kdlist(42, "nested"))
 print(mixed)
 // ["a", 1, 1.4, true, [42, "nested"]]
 ```
 
----
-
-### Creating a `kdlist`
+#### Creating a `kdlist`
 
 | Constructor                          | Description |
 |--------------------------------------|-------------|
 | `kdlist()`                           | Empty list |
-| `kdlist{...}`                        | Braced initializer list of arbitrary values |
 | `kdlist(args...)`                    | Variadic constructor – each argument becomes an element |
 
 ```cpp
-auto empty  = kdlist{}                     // []
-auto nums   = kdlist{1, 2, 3}              // [1, 2, 3]
-auto mixed  = kdlist{"hello", 42, 3.14}    // ["hello", 42, 3.14]
-auto nested = kdlist{1, kdlist{"inner"}}   // [1, ["inner"]]
+auto empty  = kdlist()                       // []
+auto nums   = kdlist(1, 2, 3)                // [1, 2, 3]
+auto mixed  = kdlist("hello", 42, 3.14)      // ["hello", 42, 3.14]
+auto nested = kdlist(1, kdlist("inner"))     // [1, ["inner"]]
 ```
 
----
+> 💡 **Remember:** Always use `( )` for `kdlist` construction, not `{ }`. This ensures the preprocessor inserts semicolons correctly.
 
-### Accessing Elements
+#### Accessing Elements
 
 | Method                 | Description |
 |------------------------|-------------|
@@ -267,16 +312,14 @@ auto nested = kdlist{1, kdlist{"inner"}}   // [1, ["inner"]]
 | `front()` / `back()`   | First/last element |
 
 ```cpp
-auto lst = kdlist{10, 20, 30}
+auto lst = kdlist(10, 20, 30)
 print(lst[0])          // 10
 print(lst.at(1))       // 20
 print(lst.front())     // 10
 print(lst.back())      // 30
 ```
 
----
-
-### Modifiers
+#### Modifiers
 
 | Method                          | Description |
 |---------------------------------|-------------|
@@ -289,12 +332,12 @@ print(lst.back())      // 30
 | `reserve(size)`                 | Pre‑allocate capacity for performance |
 
 ```cpp
-auto lst = kdlist{1, 2, 3}
+auto lst = kdlist(1, 2, 3)
 
 lst.append(4)                 // [1, 2, 3, 4]
 lst.insert(1, 99)             // [1, 99, 2, 3, 4]
 
-auto other = kdlist{5, 6}
+auto other = kdlist(5, 6)
 lst.extend(other)             // [1, 99, 2, 3, 4, 5, 6]
 
 var last = lst.pop()          // returns 6, list becomes [1, 99, 2, 3, 4, 5]
@@ -304,9 +347,7 @@ lst.remove(3)                 // [1, 2, 4, 5]
 lst.clear()                   // []
 ```
 
----
-
-### Searching
+#### Searching
 
 | Method            | Description |
 |-------------------|-------------|
@@ -314,14 +355,12 @@ lst.clear()                   // []
 | `count(value)`    | Return number of occurrences |
 
 ```cpp
-auto lst = kdlist{1, 2, 3, 2, 1}
+auto lst = kdlist(1, 2, 3, 2, 1)
 print(lst.index(2))   // 1
 print(lst.count(2))   // 2
 ```
 
----
-
-### Ordering
+#### Ordering
 
 | Method      | Description |
 |-------------|-------------|
@@ -330,10 +369,10 @@ print(lst.count(2))   // 2
 
 **Sort order**:  
 `null` < `false` < `true` < integers < floats < strings < arrays < objects.  
-For equal types, lexicographical / numerical comparison is used. This matches Python’s general ordering behaviour (with the exception that Python 3 doesn't compare different types by default).
+For equal types, lexicographical / numerical comparison is used.
 
 ```cpp
-auto mixed = kdlist{3, 1, 4, 1.5, "b", "a", true, false}
+auto mixed = kdlist(3, 1, 4, 1.5, "b", "a", true, false)
 mixed.sort()
 print(mixed)   // [false, true, 1, 3, 4, 1.5, "a", "b"]
 
@@ -341,9 +380,7 @@ mixed.reverse()
 print(mixed)   // ["b", "a", 1.5, 4, 3, 1, true, false]
 ```
 
----
-
-### Concatenation
+#### Concatenation
 
 | Operation               | Description |
 |-------------------------|-------------|
@@ -351,18 +388,16 @@ print(mixed)   // ["b", "a", 1.5, 4, 3, 1, true, false]
 | `lst += other`          | Appends elements from `other` to `lst` (in‑place) |
 
 ```cpp
-auto a = kdlist{1, 2}
-auto b = kdlist{3, 4}
+auto a = kdlist(1, 2)
+auto b = kdlist(3, 4)
 auto c = a + b        // [1, 2, 3, 4]
 a += b                // a now [1, 2, 3, 4]
 ```
 
----
-
-### Iteration & Range‑based For
+#### Iteration & Range‑based For
 
 ```cpp
-auto lst = kdlist{"apple", "banana", "cherry"}
+auto lst = kdlist("apple", "banana", "cherry")
 for (const auto& item : lst) {
     print(item)
 }
@@ -371,27 +406,23 @@ for (const auto& item : lst) {
 You can also use STL algorithms with `begin()` / `end()`:
 
 ```cpp
-auto lst = kdlist{10, 20, 30}
+auto lst = kdlist(10, 20, 30)
 var sum = std::accumulate(lst.begin(), lst.end(), 0)
 ```
 
----
-
-### Comparison
+#### Comparison
 
 `kdlist` supports `==` and `!=`, comparing element‑wise in order.
 
 ```cpp
-auto a = kdlist{1, 2, 3}
-auto b = kdlist{1, 2, 3}
-auto c = kdlist{1, 2, 4}
+auto a = kdlist(1, 2, 3)
+auto b = kdlist(1, 2, 3)
+auto c = kdlist(1, 2, 4)
 print(a == b)   // true
 print(a == c)   // false
 ```
 
----
-
-### Utility
+#### Utility
 
 | Method          | Description |
 |-----------------|-------------|
@@ -399,29 +430,25 @@ print(a == c)   // false
 | `empty()`       | Check if empty |
 | `vec()`         | Return a const reference to the underlying `std::vector<JSON>` (for advanced use) |
 
----
-
-### Performance & Implementation
+#### Performance & Implementation
 
 `kdlist` is a thin wrapper around `std::vector<JSON>`. Every operation is **inline** and compiles to the same machine code as using a vector directly — no virtual calls, no hidden overhead. The `JSON` variant is a stack‑based discriminated union, so elements are stored contiguously and access is cache‑friendly.
 
-- **Append** is amortised O(1) – `std::vector`’s growth policy ensures good performance.
+- **Append** is amortised O(1) – `std::vector`'s growth policy ensures good performance.
 - **Insert / erase** at arbitrary positions is O(n) (same as `std::vector`).
 - **Sort** uses `std::sort` with a custom comparator; complexity O(n log n).
 
-If you need a homogeneous, statically‑typed list, prefer `List<T>` (plain `std::vector`) – it has even less overhead because it doesn’t carry a variant tag. Use `kdlist` only when you truly need heterogeneity.
+If you need a homogeneous, statically‑typed list, prefer `List<T>` (plain `std::vector`) – it has even less overhead because it doesn't carry a variant tag. Use `kdlist` only when you truly need heterogeneity.
 
----
-
-### Example: Processing Heterogeneous Data
+#### Example: Processing Heterogeneous Data
 
 ```cpp
 MAIN {
-    var records = kdlist{
-        kdlist{"Alice", 30, true},
-        kdlist{"Bob", 25, false},
-        kdlist{"Charlie", 35, true}
-    }
+    var records = kdlist(
+        kdlist("Alice", 30, true),
+        kdlist("Bob", 25, false),
+        kdlist("Charlie", 35, true)
+    )
 
     // Filter and transform
     for (var record : records) {
@@ -434,14 +461,12 @@ MAIN {
     }
 
     // Add a new record
-    records.append(kdlist{"Diana", 28, true})
+    records.append(kdlist("Diana", 28, true))
     print(records)
 }
 ```
 
----
-
-### Comparison with `List<T>`
+#### Comparison with `List<T>`
 
 | Feature | `List<T>` (`std::vector`) | `kdlist` |
 |---------|---------------------------|----------|
@@ -501,9 +526,10 @@ var person = std::make_tuple(42, "Alice", true)
 var id = std::get<0>(person)
 var name = std::get<1>(person)
 ```
-for ken there is a sort function called ktup()
 
-```ken
+Ken provides `ktup()` as a shortcut:
+
+```cpp
 var name = String("Alice")
 var age = Int(30)
 var scores = klist(95, 87, 92)
@@ -1322,7 +1348,7 @@ MAIN {
 3. **Progressive** — Use simple features first, advanced features when ready. You can always drop to raw C++.
 4. **Non-invasive** — Macros are guarded, global namespace is optional. Won't break existing code.
 5. **Batteries included** — Common operations are built in. No dependency hunting.
-6. **Semicolon-free** — The `kencc` preprocessor handles semicolons so you don't have to.
+6. **Semicolon-free** — The `kencc` preprocessor handles semicolons so you don't have to, but remember the Golden Brace Rule!
 7. **Header-only** — No linking, no build system required. Just `#include "ken.hpp"`.
 
 ---
