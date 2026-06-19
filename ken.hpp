@@ -617,34 +617,28 @@ void extend(C& container, Values&&... values) {
 }
 
 // ============================================================================
-// 12. TIMER & BENCHMARK
-// ============================================================================
-class Timer {
-    std::chrono::high_resolution_clock::time_point start_;
-public:
-    Timer() { reset(); }
-    void reset() { start_ = std::chrono::high_resolution_clock::now(); }
-    Float elapsed() {
-        auto now = std::chrono::high_resolution_clock::now();
-        return std::chrono::duration<Float, std::milli>(now - start_).count();
-    }
-    template <typename F>
-    static void benchmark(const String& label, F&& block) {
-        auto start = std::chrono::high_resolution_clock::now();
-        std::forward<F>(block)();
-        auto end = std::chrono::high_resolution_clock::now();
-        Float ms = std::chrono::duration<Float, std::milli>(end - start).count();
-        ken::print("[BENCHMARK]", label, ":", ms, "ms");
-    }
-};
-
-// ============================================================================
 // 11.6 KDLIST – Python‑style dynamic list (heterogeneous, high‑performance)
 // ============================================================================
 class kdlist {
     std::vector<JSON> data_;
 
-    // Helper for sorting (total ordering over JSON values)
+    // ------------------------------------------------------------------------
+    // Helper: convert any value to JSON with integral types forced to Int
+    // (except bool, which stays Bool)
+    // ------------------------------------------------------------------------
+    template<typename T>
+    static JSON to_json(T&& val) {
+        using Decayed = std::decay_t<T>;
+        if constexpr (std::is_integral_v<Decayed> && !std::is_same_v<Decayed, bool>) {
+            return JSON{static_cast<Int>(val)};
+        } else {
+            return JSON{std::forward<T>(val)};
+        }
+    }
+
+    // ------------------------------------------------------------------------
+    // Sorting comparator (total order over all JSON types)
+    // ------------------------------------------------------------------------
     static int compare_json(const JSON& a, const JSON& b) {
         int type_a = a.index();
         int type_b = b.index();
@@ -676,21 +670,25 @@ class kdlist {
     }
 
 public:
-    // --- Constructors ---
+    // --- Constructors --------------------------------------------------------
     kdlist() = default;
+
+    // Explicit initializer list for raw JSON values (advanced use)
     kdlist(std::initializer_list<JSON> init) : data_(init) {}
+
+    // Variadic constructor – all integral types become Int, others forwarded
     template<typename... Args>
     kdlist(Args&&... args) {
         data_.reserve(sizeof...(args));
-        (data_.emplace_back(std::forward<Args>(args)), ...);
+        (data_.emplace_back(to_json(std::forward<Args>(args))), ...);
     }
 
-    // --- Capacity ---
+    // --- Capacity ------------------------------------------------------------
     [[nodiscard]] size_t size() const noexcept { return data_.size(); }
     [[nodiscard]] bool empty() const noexcept { return data_.empty(); }
     void reserve(size_t n) { data_.reserve(n); }
 
-    // --- Element access ---
+    // --- Element access ------------------------------------------------------
     JSON& operator[](size_t index)       { return data_[index]; }
     const JSON& operator[](size_t index) const { return data_[index]; }
     JSON& at(size_t index) { return data_.at(index); }
@@ -700,11 +698,15 @@ public:
     JSON& back() { return data_.back(); }
     const JSON& back() const { return data_.back(); }
 
-    // --- Modifiers ---
+    // --- Modifiers -----------------------------------------------------------
     void append(const JSON& value) { data_.push_back(value); }
     void append(JSON&& value) { data_.push_back(std::move(value)); }
+
+    // Variadic append – uses the same conversion helper
     template<typename... Args>
-    void append(Args&&... args) { data_.emplace_back(std::forward<Args>(args)...); }
+    void append(Args&&... args) {
+        data_.emplace_back(to_json(std::forward<Args>(args)...));
+    }
 
     void extend(const kdlist& other) {
         data_.insert(data_.end(), other.data_.begin(), other.data_.end());
@@ -745,7 +747,7 @@ public:
         data_.erase(it);
     }
 
-    // --- Search ---
+    // --- Search --------------------------------------------------------------
     [[nodiscard]] int index(const JSON& value) const {
         auto it = std::find(data_.begin(), data_.end(), value);
         if (it == data_.end()) throw std::runtime_error("value not found in kdlist");
@@ -755,14 +757,14 @@ public:
         return static_cast<int>(std::count(data_.begin(), data_.end(), value));
     }
 
-    // --- Ordering ---
+    // --- Ordering ------------------------------------------------------------
     void reverse() { std::reverse(data_.begin(), data_.end()); }
     void sort() {
         std::sort(data_.begin(), data_.end(),
                   [](const JSON& a, const JSON& b) { return compare_json(a, b) < 0; });
     }
 
-    // --- Concatenation ---
+    // --- Concatenation -------------------------------------------------------
     kdlist operator+(const kdlist& other) const {
         kdlist result = *this;
         result.extend(other);
@@ -777,19 +779,40 @@ public:
         return *this;
     }
 
-    // --- Iterators ---
+    // --- Iterators -----------------------------------------------------------
     auto begin()       { return data_.begin(); }
     auto begin() const { return data_.begin(); }
     auto end()         { return data_.end(); }
     auto end()   const { return data_.end(); }
 
-    // --- Comparison ---
+    // --- Comparison ----------------------------------------------------------
     bool operator==(const kdlist& other) const { return data_ == other.data_; }
     bool operator!=(const kdlist& other) const { return !(*this == other); }
 
-    // --- Utilities ---
+    // --- Utilities -----------------------------------------------------------
     void clear() noexcept { data_.clear(); }
     const std::vector<JSON>& vec() const noexcept { return data_; }
+};
+// ============================================================================
+// 12. TIMER & BENCHMARK
+// ============================================================================
+class Timer {
+    std::chrono::high_resolution_clock::time_point start_;
+public:
+    Timer() { reset(); }
+    void reset() { start_ = std::chrono::high_resolution_clock::now(); }
+    Float elapsed() {
+        auto now = std::chrono::high_resolution_clock::now();
+        return std::chrono::duration<Float, std::milli>(now - start_).count();
+    }
+    template <typename F>
+    static void benchmark(const String& label, F&& block) {
+        auto start = std::chrono::high_resolution_clock::now();
+        std::forward<F>(block)();
+        auto end = std::chrono::high_resolution_clock::now();
+        Float ms = std::chrono::duration<Float, std::milli>(end - start).count();
+        ken::print("[BENCHMARK]", label, ":", ms, "ms");
+    }
 };
 
 // ============================================================================
