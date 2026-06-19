@@ -9,7 +9,7 @@
 1. [Quick Start](#quick-start)
 2. [Core Philosophy](#core-philosophy)
 3. [Installation](#installation)
-4. [The Golden Brace Rule](#the-golden-brace-rule)
+4. [The Golden Brace Rule](#the-golden-brace-rule) ⭐ **IMPORTANT**
 5. [Type System](#type-system)
 6. [Variables & Type Deduction](#variables--type-deduction)
 7. [Containers](#containers)
@@ -126,7 +126,7 @@ sudo chmod +x /usr/local/bin/kencc
 
 ---
 
-## The Golden Brace Rule ⭐
+## The Golden Brace Rule 
 
 > **"Only functions and control flow use `{ }` — everything else uses `( )`."**
 
