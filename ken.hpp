@@ -639,6 +639,160 @@ public:
 };
 
 // ============================================================================
+// 11.6 KDLIST – Python‑style dynamic list (heterogeneous, high‑performance)
+// ============================================================================
+class kdlist {
+    std::vector<JSON> data_;
+
+    // Helper for sorting (total ordering over JSON values)
+    static int compare_json(const JSON& a, const JSON& b) {
+        int type_a = a.index();
+        int type_b = b.index();
+        if (type_a != type_b) return type_a - type_b;
+        return std::visit([&](const auto& va, const auto& vb) -> int {
+            using TA = std::decay_t<decltype(va)>;
+            using TB = std::decay_t<decltype(vb)>;
+            if constexpr (std::is_same_v<TA, TB>) {
+                if constexpr (std::is_same_v<TA, std::monostate>) return 0;
+                else if constexpr (std::is_same_v<TA, Bool>) return (va ? 1 : 0) - (vb ? 1 : 0);
+                else if constexpr (std::is_same_v<TA, Int>) return (va < vb) ? -1 : (va > vb) ? 1 : 0;
+                else if constexpr (std::is_same_v<TA, Float>) return (va < vb) ? -1 : (va > vb) ? 1 : 0;
+                else if constexpr (std::is_same_v<TA, String>) return va.compare(vb);
+                else if constexpr (std::is_same_v<TA, detail::JSONList>) {
+                    size_t min_sz = std::min(va.size(), vb.size());
+                    for (size_t i = 0; i < min_sz; ++i) {
+                        int cmp = compare_json(va[i], vb[i]);
+                        if (cmp != 0) return cmp;
+                    }
+                    return (va.size() < vb.size()) ? -1 : (va.size() > vb.size()) ? 1 : 0;
+                }
+                else if constexpr (std::is_same_v<TA, detail::JSONDict>) {
+                    // Compare by size for simplicity; could be expanded.
+                    return (va.size() < vb.size()) ? -1 : (va.size() > vb.size()) ? 1 : 0;
+                }
+            }
+            return 0;
+        }, a, b);
+    }
+
+public:
+    // --- Constructors ---
+    kdlist() = default;
+    kdlist(std::initializer_list<JSON> init) : data_(init) {}
+    template<typename... Args>
+    kdlist(Args&&... args) {
+        data_.reserve(sizeof...(args));
+        (data_.emplace_back(std::forward<Args>(args)), ...);
+    }
+
+    // --- Capacity ---
+    [[nodiscard]] size_t size() const noexcept { return data_.size(); }
+    [[nodiscard]] bool empty() const noexcept { return data_.empty(); }
+    void reserve(size_t n) { data_.reserve(n); }
+
+    // --- Element access ---
+    JSON& operator[](size_t index)       { return data_[index]; }
+    const JSON& operator[](size_t index) const { return data_[index]; }
+    JSON& at(size_t index) { return data_.at(index); }
+    const JSON& at(size_t index) const { return data_.at(index); }
+    JSON& front() { return data_.front(); }
+    const JSON& front() const { return data_.front(); }
+    JSON& back() { return data_.back(); }
+    const JSON& back() const { return data_.back(); }
+
+    // --- Modifiers ---
+    void append(const JSON& value) { data_.push_back(value); }
+    void append(JSON&& value) { data_.push_back(std::move(value)); }
+    template<typename... Args>
+    void append(Args&&... args) { data_.emplace_back(std::forward<Args>(args)...); }
+
+    void extend(const kdlist& other) {
+        data_.insert(data_.end(), other.data_.begin(), other.data_.end());
+    }
+    void extend(kdlist&& other) {
+        data_.insert(data_.end(),
+                     std::make_move_iterator(other.data_.begin()),
+                     std::make_move_iterator(other.data_.end()));
+    }
+    template<typename Iter>
+    void extend(Iter first, Iter last) {
+        data_.insert(data_.end(), first, last);
+    }
+
+    void insert(size_t index, const JSON& value) {
+        data_.insert(data_.begin() + index, value);
+    }
+    void insert(size_t index, JSON&& value) {
+        data_.insert(data_.begin() + index, std::move(value));
+    }
+
+    JSON pop() {
+        if (empty()) throw std::out_of_range("pop from empty kdlist");
+        JSON val = std::move(data_.back());
+        data_.pop_back();
+        return val;
+    }
+    JSON pop(size_t index) {
+        if (index >= data_.size()) throw std::out_of_range("pop index out of range");
+        JSON val = std::move(data_[index]);
+        data_.erase(data_.begin() + index);
+        return val;
+    }
+
+    void remove(const JSON& value) {
+        auto it = std::find(data_.begin(), data_.end(), value);
+        if (it == data_.end()) throw std::runtime_error("value not found in kdlist");
+        data_.erase(it);
+    }
+
+    // --- Search ---
+    [[nodiscard]] int index(const JSON& value) const {
+        auto it = std::find(data_.begin(), data_.end(), value);
+        if (it == data_.end()) throw std::runtime_error("value not found in kdlist");
+        return static_cast<int>(it - data_.begin());
+    }
+    [[nodiscard]] int count(const JSON& value) const {
+        return static_cast<int>(std::count(data_.begin(), data_.end(), value));
+    }
+
+    // --- Ordering ---
+    void reverse() { std::reverse(data_.begin(), data_.end()); }
+    void sort() {
+        std::sort(data_.begin(), data_.end(),
+                  [](const JSON& a, const JSON& b) { return compare_json(a, b) < 0; });
+    }
+
+    // --- Concatenation ---
+    kdlist operator+(const kdlist& other) const {
+        kdlist result = *this;
+        result.extend(other);
+        return result;
+    }
+    kdlist& operator+=(const kdlist& other) {
+        extend(other);
+        return *this;
+    }
+    kdlist& operator+=(kdlist&& other) {
+        extend(std::move(other));
+        return *this;
+    }
+
+    // --- Iterators ---
+    auto begin()       { return data_.begin(); }
+    auto begin() const { return data_.begin(); }
+    auto end()         { return data_.end(); }
+    auto end()   const { return data_.end(); }
+
+    // --- Comparison ---
+    bool operator==(const kdlist& other) const { return data_ == other.data_; }
+    bool operator!=(const kdlist& other) const { return !(*this == other); }
+
+    // --- Utilities ---
+    void clear() noexcept { data_.clear(); }
+    const std::vector<JSON>& vec() const noexcept { return data_; }
+};
+
+// ============================================================================
 // 13. BASH PIPE OPERATOR
 // ============================================================================
 struct BashPipe {};
