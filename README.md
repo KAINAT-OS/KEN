@@ -13,6 +13,7 @@
 5. [Variables & Type Deduction](#variables--type-deduction)
 6. [Containers](#containers)
    - [Lists](#lists)
+   - [Kdlists](#kdlists)
    - [Dicts](#dicts)
    - [Sets](#sets)
    - [Tuples](#tuples)
@@ -228,6 +229,232 @@ nums[0] = 99                           // modify in place
 var size = len(nums)                   // 9
 nums.push_back(10)                     // C++ style also works
 ```
+## Kdlists
+
+**`kdlist`** is Ken's dynamic, **heterogeneous** list type — a full clone of Python’s `list`. It can hold values of any type: integers, floats, strings, booleans, nested lists, dictionaries, or anything that can be represented as a `JSON` value. Under the hood it stores `JSON` variants in a `std::vector`, giving you `O(1)` amortized access, append, and pop while maintaining type safety at runtime.
+
+```cpp
+var mixed = kdlist{"a", 1, 1.4, true, kdlist{42, "nested"}}
+print(mixed)
+// ["a", 1, 1.4, true, [42, "nested"]]
+```
+
+---
+
+### Creating a `kdlist`
+
+| Constructor                          | Description |
+|--------------------------------------|-------------|
+| `kdlist()`                           | Empty list |
+| `kdlist{...}`                        | Braced initializer list of arbitrary values |
+| `kdlist(args...)`                    | Variadic constructor – each argument becomes an element |
+
+```cpp
+auto empty  = kdlist{}                     // []
+auto nums   = kdlist{1, 2, 3}              // [1, 2, 3]
+auto mixed  = kdlist{"hello", 42, 3.14}    // ["hello", 42, 3.14]
+auto nested = kdlist{1, kdlist{"inner"}}   // [1, ["inner"]]
+```
+
+---
+
+### Accessing Elements
+
+| Method                 | Description |
+|------------------------|-------------|
+| `operator[](size_t)`   | Bounds‑unchecked access (fast) |
+| `at(size_t)`           | Bounds‑checked access (throws `std::out_of_range`) |
+| `front()` / `back()`   | First/last element |
+
+```cpp
+auto lst = kdlist{10, 20, 30}
+print(lst[0])          // 10
+print(lst.at(1))       // 20
+print(lst.front())     // 10
+print(lst.back())      // 30
+```
+
+---
+
+### Modifiers
+
+| Method                          | Description |
+|---------------------------------|-------------|
+| `append(value)`                 | Add a single element at the end |
+| `extend(other)` / `extend(first, last)` | Append all elements from another list or iterator range |
+| `insert(index, value)`          | Insert value at given index |
+| `pop()` / `pop(index)`          | Remove and return last element (or at index) |
+| `remove(value)`                 | Remove first occurrence of value (throws if not found) |
+| `clear()`                       | Remove all elements |
+| `reserve(size)`                 | Pre‑allocate capacity for performance |
+
+```cpp
+auto lst = kdlist{1, 2, 3}
+
+lst.append(4)                 // [1, 2, 3, 4]
+lst.insert(1, 99)             // [1, 99, 2, 3, 4]
+
+auto other = kdlist{5, 6}
+lst.extend(other)             // [1, 99, 2, 3, 4, 5, 6]
+
+var last = lst.pop()          // returns 6, list becomes [1, 99, 2, 3, 4, 5]
+var second = lst.pop(1)       // returns 99, list becomes [1, 2, 3, 4, 5]
+
+lst.remove(3)                 // [1, 2, 4, 5]
+lst.clear()                   // []
+```
+
+---
+
+### Searching
+
+| Method            | Description |
+|-------------------|-------------|
+| `index(value)`    | Return first index of value (throws if not found) |
+| `count(value)`    | Return number of occurrences |
+
+```cpp
+auto lst = kdlist{1, 2, 3, 2, 1}
+print(lst.index(2))   // 1
+print(lst.count(2))   // 2
+```
+
+---
+
+### Ordering
+
+| Method      | Description |
+|-------------|-------------|
+| `reverse()` | Reverse list in‑place |
+| `sort()`    | Sort list in‑place using a deterministic total order over all JSON types |
+
+**Sort order**:  
+`null` < `false` < `true` < integers < floats < strings < arrays < objects.  
+For equal types, lexicographical / numerical comparison is used. This matches Python’s general ordering behaviour (with the exception that Python 3 doesn't compare different types by default).
+
+```cpp
+auto mixed = kdlist{3, 1, 4, 1.5, "b", "a", true, false}
+mixed.sort()
+print(mixed)   // [false, true, 1, 3, 4, 1.5, "a", "b"]
+
+mixed.reverse()
+print(mixed)   // ["b", "a", 1.5, 4, 3, 1, true, false]
+```
+
+---
+
+### Concatenation
+
+| Operation               | Description |
+|-------------------------|-------------|
+| `lst + other`           | Returns a new `kdlist` combining both |
+| `lst += other`          | Appends elements from `other` to `lst` (in‑place) |
+
+```cpp
+auto a = kdlist{1, 2}
+auto b = kdlist{3, 4}
+auto c = a + b        // [1, 2, 3, 4]
+a += b                // a now [1, 2, 3, 4]
+```
+
+---
+
+### Iteration & Range‑based For
+
+```cpp
+auto lst = kdlist{"apple", "banana", "cherry"}
+for (const auto& item : lst) {
+    print(item)
+}
+```
+
+You can also use STL algorithms with `begin()` / `end()`:
+
+```cpp
+auto lst = kdlist{10, 20, 30}
+var sum = std::accumulate(lst.begin(), lst.end(), 0)
+```
+
+---
+
+### Comparison
+
+`kdlist` supports `==` and `!=`, comparing element‑wise in order.
+
+```cpp
+auto a = kdlist{1, 2, 3}
+auto b = kdlist{1, 2, 3}
+auto c = kdlist{1, 2, 4}
+print(a == b)   // true
+print(a == c)   // false
+```
+
+---
+
+### Utility
+
+| Method          | Description |
+|-----------------|-------------|
+| `size()`        | Number of elements |
+| `empty()`       | Check if empty |
+| `vec()`         | Return a const reference to the underlying `std::vector<JSON>` (for advanced use) |
+
+---
+
+### Performance & Implementation
+
+`kdlist` is a thin wrapper around `std::vector<JSON>`. Every operation is **inline** and compiles to the same machine code as using a vector directly — no virtual calls, no hidden overhead. The `JSON` variant is a stack‑based discriminated union, so elements are stored contiguously and access is cache‑friendly.
+
+- **Append** is amortised O(1) – `std::vector`’s growth policy ensures good performance.
+- **Insert / erase** at arbitrary positions is O(n) (same as `std::vector`).
+- **Sort** uses `std::sort` with a custom comparator; complexity O(n log n).
+
+If you need a homogeneous, statically‑typed list, prefer `List<T>` (plain `std::vector`) – it has even less overhead because it doesn’t carry a variant tag. Use `kdlist` only when you truly need heterogeneity.
+
+---
+
+### Example: Processing Heterogeneous Data
+
+```cpp
+MAIN {
+    var records = kdlist{
+        kdlist{"Alice", 30, true},
+        kdlist{"Bob", 25, false},
+        kdlist{"Charlie", 35, true}
+    }
+
+    // Filter and transform
+    for (var record : records) {
+        var name  = record[0]
+        var age   = record[1]
+        var active = record[2]
+        if (active) {
+            print(name, "is active and", age, "years old")
+        }
+    }
+
+    // Add a new record
+    records.append(kdlist{"Diana", 28, true})
+    print(records)
+}
+```
+
+---
+
+### Comparison with `List<T>`
+
+| Feature | `List<T>` (`std::vector`) | `kdlist` |
+|---------|---------------------------|----------|
+| Element type | Homogeneous (compile‑time) | Heterogeneous (runtime) |
+| Type safety | Full compile‑time | Runtime checks (variant) |
+| Memory footprint | Minimal (exact size of T) | Larger (variant overhead) |
+| Use case | Performance‑critical, same‑type data | Flexible, mixed‑type data (JSON‑like) |
+
+Choose the right tool for the job: `List<T>` for speed, `kdlist` for flexibility.
+
+---
+
+**Next:** [Dicts](#dicts)
 
 ### Dicts
 
