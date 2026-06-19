@@ -274,6 +274,14 @@ var person = std::make_tuple(42, "Alice", true)
 var id = std::get<0>(person)
 var name = std::get<1>(person)
 ```
+for ken there is a sort function called ktup()
+
+```ken
+var name = String("Alice")
+var age = Int(30)
+var scores = klist(95, 87, 92)
+var t2 = ktup(name, age, scores)
+```
 
 ---
 
