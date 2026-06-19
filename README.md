@@ -9,7 +9,7 @@
 1. [Quick Start](#quick-start)
 2. [Core Philosophy](#core-philosophy)
 3. [Installation](#installation)
-4. [The Golden Brace Rule](#the-golden-brace-rule) ⭐ **IMPORTANT**
+4. [The Golden Brace Rule](#the-golden-brace-rule-⭐) ⭐ **IMPORTANT**
 5. [Type System](#type-system)
 6. [Variables & Type Deduction](#variables--type-deduction)
 7. [Containers](#containers)
